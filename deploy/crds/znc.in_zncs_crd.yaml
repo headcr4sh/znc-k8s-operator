@@ -1,0 +1,71 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: zncs.znc.in
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.version
+    description: Version of this ZNC instance
+    name: Version
+    type: string
+  group: znc.in
+  names:
+    kind: ZNC
+    listKind: ZNCList
+    plural: zncs
+    singular: znc
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: ZNC is the Schema for the zncs API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: ZNCSpec defines the desired state of ZNC
+          properties:
+            config:
+              description: ZNSSpecConfig is the configuration used by the ZNC instance.
+              properties:
+                anonIPLimit:
+                  description: AnonIPLimit is the limit of anonymous unidentified
+                    connections per IP.
+                  minimum: 0
+                  type: integer
+                connectDelay:
+                  description: 'ConnectDelay is the number of seconds every IRC connection
+                    is delayed. IRC servers may refuse a connection when reconnecting
+                    too fast. NOTE: Affects connections between ZNC and IRC servers;
+                    not connections between IRC clients and ZNC.'
+                  minimum: 0
+                  type: integer
+                hideVersion:
+                  description: HideVersion controls whether the version number is
+                    hidden from the web interface and CTCP VERSION replies.
+                  type: boolean
+              type: object
+            version:
+              description: Version specifies the ZNC version to run.
+              type: string
+          type: object
+        status:
+          description: ZNCStatus defines the observed state of ZNC
+          type: object
+      type: object
+  version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true

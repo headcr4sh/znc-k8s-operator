@@ -3,6 +3,7 @@ module znc-operator
 go 1.13
 
 require (
+	github.com/mitchellh/hashstructure v1.0.0
 	github.com/operator-framework/operator-sdk v0.16.0
 	github.com/spf13/pflag v1.0.5
 	k8s.io/api v0.0.0

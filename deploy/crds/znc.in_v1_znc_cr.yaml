@@ -1,0 +1,6 @@
+apiVersion: znc.in/v1
+kind: ZNC
+metadata:
+  name: example-znc
+spec:
+  config: {}
