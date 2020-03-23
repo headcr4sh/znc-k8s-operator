@@ -1,6 +1,9 @@
+---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
+  labels:
+    app.kubernetes.io/name: znc-operator
   name: znc-operator
 subjects:
 - kind: ServiceAccount
@@ -9,3 +12,4 @@ roleRef:
   kind: Role
   name: znc-operator
   apiGroup: rbac.authorization.k8s.io
+...

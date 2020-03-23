@@ -55,7 +55,301 @@ spec:
                   description: HideVersion controls whether the version number is
                     hidden from the web interface and CTCP VERSION replies.
                   type: boolean
+                loadModules:
+                  description: LoadModules controls which modules shall be loaded.
+                  items:
+                    type: string
+                  minItems: 0
+                  type: array
+                maxBufferSize:
+                  description: MaxBufferSize controls the maximum playback buffer
+                    size. Only admin users can exceed the limit.
+                  format: int32
+                  minimum: 0
+                  type: integer
+                motd:
+                  description: Motd specifies the list of "message of the day" lines
+                    that are sent to clients on connect via notice from *status.
+                  items:
+                    type: string
+                  minItems: 0
+                  type: array
+                serverThrottle:
+                  description: ServerThrottle controls the  number of seconds between
+                    connect attempts to the same hostname.
+                  format: int32
+                  type: integer
+                statusPrefix:
+                  description: StatusPrefix controls the default prefix for status
+                    and module queries. Users can override the value.
+                  minLength: 1
+                  type: string
+                users:
+                  description: Users specifies the users that are allowed to interact
+                    with this ZNC instance.
+                  items:
+                    properties:
+                      admin:
+                        description: Admin toggles whether the user has admin rights.
+                        type: boolean
+                      altNick:
+                        description: AltNick controls the default alternate nick used
+                          if the primary nick is reserved. Networks can override the
+                          value.
+                        minLength: 1
+                        type: string
+                      appendTimestamp:
+                        description: 'AppendTimestamp controls whether Whether timestamps
+                          are appended to buffer playback messages. NOTE: Only used
+                          for clients that do not support server-time.'
+                        type: boolean
+                      autoClearChanBuffer:
+                        description: AutoClearChanBuffer controls whether hether channel
+                          buffers are automatically cleared after playback. When disabled,
+                          messages are buffered even while clients are attached, and
+                          already seen messages may be repeated each time clients
+                          connect.
+                        type: boolean
+                      autoClearQueryBuffer:
+                        description: AutoClearQueryBuffer controls whether query buffers
+                          are automatically cleared after playback. When disabled,
+                          messages are buffered even while clients are attached, and
+                          already seen messages may be repeated each time clients
+                          connect.
+                        type: boolean
+                      buffer:
+                        description: Buffer controls the maximum amount of lines stored
+                          for each channel or query playback buffer. The buffers are
+                          stored in memory, and oldest lines are discarded when the
+                          limit is reached. Only admin users can exceed the maximum
+                          buffer size specified in the global section.
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      chanBufferSize:
+                        description: ChanBufferSize controls the maximum amount of
+                          lines stored for each channel playback buffer. The buffers
+                          are stored in memory, and oldest lines are discarded when
+                          the limit is reached. Only admin users can exceed the maximum
+                          buffer size specified in the global section.
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      chanModes:
+                        description: ChanModes controls the default modes ZNC sets
+                          when joining an empty channel.
+                        type: string
+                      clientEncoding:
+                        description: ClientEncoding sets the client encoding.
+                        type: string
+                      ident:
+                        description: Ident defines the default ident. Networks can
+                          override the value.
+                        type: string
+                      joinTries:
+                        description: JoinTries specifies the amount of times channels
+                          are attempted to join in case of a failure eg. due to channel
+                          modes +i/+k/+b.
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      loadModules:
+                        description: LoadModules controls the list of user modules
+                          loaded on ZNC startup.
+                        items:
+                          type: string
+                        minItems: 0
+                        type: array
+                      maxJoins:
+                        description: MaxJoins controls the maximum number of channels
+                          ZNC joins at once. Lower the value in case getting disconnected
+                          for 'Excess flood'.
+                        format: int32
+                        type: integer
+                      maxQueryBuffers:
+                        description: MaxQueryBuffers controls the maximum number of
+                          query buffers that are stored. 0 is unlimited.
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      multiClients:
+                        description: MultiClients controls whether multiple clients
+                          are allowed to connect simultaneously.
+                        type: boolean
+                      name:
+                        description: Name specifies the user's name.
+                        type: string
+                      networks:
+                        description: Networks specifies a list of IRC networks to
+                          connect to.
+                        items:
+                          properties:
+                            altNick:
+                              description: AltNick specifies an optional network specific
+                                alternate nick used if the primary nick is reserved.
+                              minLength: 1
+                              type: string
+                            channels:
+                              description: Channels specifies the channels to be joined.
+                              items:
+                                properties:
+                                  autoClearChanBuffer:
+                                    description: AutoClearChanBuffer defines whether
+                                      the channel specific buffer is automatically
+                                      cleared after playback.
+                                    type: boolean
+                                  buffer:
+                                    description: Buffer defines the maximum amount
+                                      of lines stored for the channel specific playback
+                                      buffer.
+                                    format: int32
+                                    minimum: 0
+                                    type: integer
+                                  detached:
+                                    description: Detached defines whether the channel
+                                      is detached. Detached channels are not visible
+                                      to clients.
+                                    type: boolean
+                                  disabled:
+                                    description: Disabled defines whether the channel
+                                      is disabled. ZNC does not join disabled channels.
+                                    type: boolean
+                                  key:
+                                    description: Key is an optional channel key.
+                                    type: string
+                                  modes:
+                                    description: Modes specifies an optional set of
+                                      default channel modes ZNC sets when joining
+                                      an empty channel.
+                                    type: string
+                                  name:
+                                    description: Name specifies the channel name.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              type: array
+                            encoding:
+                              description: Encoding sets an optional network specific
+                                encoding.
+                              type: string
+                            ident:
+                              description: Ident defines an optional network specific
+                                ident.
+                              type: string
+                            ircConnectEnabled:
+                              description: IRCConnectEnabled specifies whether the
+                                network is enabled ie. connects to IRC.
+                              type: boolean
+                            joinDelay:
+                              description: JoinDelay specifies the delay in seconds,
+                                until channels are joined after getting connected.
+                              format: int32
+                              type: integer
+                            loadModules:
+                              description: LoadModules controls the list of network
+                                modules loaded on ZNC startup.
+                              items:
+                                type: string
+                              minItems: 0
+                              type: array
+                            name:
+                              description: Name specifies the network name.
+                              type: string
+                            nick:
+                              description: Nick specifies an optional network specific
+                                primary nick.
+                              minLength: 1
+                              type: string
+                            quitMsg:
+                              description: QuitMsg specifies aA optional network specific
+                                quit message ZNC uses when disconnecting or shutting
+                                down.
+                              type: string
+                            realName:
+                              description: RealName specifies an optional network
+                                specific real name.
+                              type: string
+                            servers:
+                              description: 'Servers specifies the list of IRC servers.
+                                Prefix the port number with a ''+'' to enable SSL.
+                                Syntax: <host> [[+]port] [password].'
+                              items:
+                                type: string
+                              type: array
+                          required:
+                          - name
+                          - servers
+                          type: object
+                        type: array
+                      nick:
+                        description: Nick controls the default primary nick. Networks
+                          can override the value.
+                        minLength: 1
+                        type: string
+                      noTrafficTimeout:
+                        description: NoTrafficTimeout specifies how much time ZNC
+                          waits (in seconds) until it receives something from network
+                          or declares the connection timeout. This happens after attempts
+                          to ping the peer.
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      pass:
+                        description: Passwords represents the definition of a password,
+                          used by clients to connect to ZNC.
+                        type: string
+                      prependTimestamp:
+                        description: 'Prependtimestamp controls whether timestamps
+                          are prepended to buffer playback messages. NOTE: Only used
+                          for clients that do not support server-time.'
+                        type: boolean
+                      queryBufferSize:
+                        description: QueryBufferSize controls the maximum amount of
+                          lines stored for each query playback buffer. The buffers
+                          are stored in memory, and oldest lines are discarded when
+                          the limit is reached. Only admin users can exceed the maximum
+                          buffer size specified in the global section.
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      quitMsg:
+                        description: QuitMsg specifies the default quit message ZNC
+                          uses when disconnecting or shutting down. Networks can override
+                          the value.
+                        type: string
+                      realName:
+                        description: RealName specifies the default real name. Networks
+                          can override the value.
+                        type: string
+                      statusPrefix:
+                        description: StatusPrefix controls the prefix for status and
+                          module queries.
+                        minLength: 1
+                        type: string
+                      timestampFormat:
+                        description: 'TimestampFormat controls the format of the timestamps
+                          used in buffer playback messages. NOTE: Only used for clients
+                          that do not support server-time.'
+                        type: string
+                      timezone:
+                        description: 'Timezone controls the timezone used for timestamps
+                          in buffer playback messages. NOTE: Only used for clients
+                          that do not support server-time'
+                        type: string
+                    required:
+                    - altNick
+                    - name
+                    - networks
+                    - nick
+                    - pass
+                    type: object
+                  minItems: 0
+                  type: array
               type: object
+            debug:
+              description: Debug is used to enable debug output.
+              type: boolean
             version:
               description: Version specifies the ZNC version to run.
               type: string

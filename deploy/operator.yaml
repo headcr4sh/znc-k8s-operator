@@ -1,16 +1,19 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  labels:
+    app.kubernetes.io/name: znc-operator
   name: znc-operator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: znc-operator
+      app.kubernetes.io/name: znc-operator
   template:
     metadata:
       labels:
-        name: znc-operator
+        app.kubernetes.io/name: znc-operator
     spec:
       serviceAccountName: znc-operator
       containers:
@@ -31,3 +34,4 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "znc-operator"
+...

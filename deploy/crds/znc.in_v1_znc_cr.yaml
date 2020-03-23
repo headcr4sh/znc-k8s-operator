@@ -1,6 +1,37 @@
+---
 apiVersion: znc.in/v1
 kind: ZNC
 metadata:
   name: example-znc
 spec:
-  config: {}
+  version: '1.7.5'
+  config:
+    loadModules:
+    - webadmin
+    - modperl
+    - modpython
+    users:
+    - name: johndoe
+      admin: true
+      clientEncoding: UTF-8
+      modules:
+      - controlpanel
+      - chansaver
+      nick: johndoe
+      altNick: johndoe_
+      realName: John Doe
+      # Test password is 'secret'
+      pass: 'sha256#074cd22fd6e2aee30c84aa9ff3e67aebb61b44621797094be4063d912084bfcf#DMexkK*0YWl/AC+7/_Cx#'
+      networks:
+      - name: freenode
+        loadModules:
+        - simple_away
+        - route_replies
+        servers:
+        - 'irc.freenode.net +6697'
+        channels:
+        - name: '#znc-k8s-operator'
+          detached: false
+          disabled: false
+          ircConnectEnabled: true
+...

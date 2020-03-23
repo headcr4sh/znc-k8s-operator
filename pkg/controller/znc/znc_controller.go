@@ -100,83 +100,105 @@ func (r *ReconcileZNC) Reconcile(request reconcile.Request) (reconcile.Result, e
 
 	var cfgHash uint64
 	{
-		cfg := newConfigMapForCR(instance)
-		if err := controllerutil.SetControllerReference(instance, cfg, r.scheme); err != nil {
+		configMap, err := newConfigMapForCR(instance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if err := controllerutil.SetControllerReference(instance, configMap, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
 		found := &corev1.ConfigMap{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace}, found)
-		if err != nil && errors.IsNotFound(err) {
-			if cfgHash, err = hashstructure.Hash(found.Data, nil); err != nil {
-				return reconcile.Result{}, err
-			}
-			reqLogger.Info("Creating a new ConfigMap", "ConfigMap.Namespace", cfg.Namespace, "ConfigMap.Name", cfg.Name)
-			err = r.client.Create(context.TODO(), cfg)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-		} else if err != nil {
-			if !reflect.DeepEqual(cfg.Data, found.Data) {
-				err = r.client.Update(context.TODO(), cfg)
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: configMap.Name, Namespace: configMap.Namespace}, found)
+		if err == nil {
+			if !reflect.DeepEqual(configMap.Data, found.Data) {
+				reqLogger.Info("Updating ZNC ConfigMap")
+				err = r.client.Update(context.TODO(), configMap)
 				if err != nil {
 					return reconcile.Result{}, err
 				}
-				if cfgHash, err = hashstructure.Hash(cfg.Data, nil); err != nil {
+				if cfgHash, err = hashstructure.Hash(configMap.Data, nil); err != nil {
 					return reconcile.Result{}, err
 				}
 			}
+		} else {
+			if errors.IsNotFound(err) {
+				reqLogger.Info("Creating a new ConfigMap", "ConfigMap.Namespace", configMap.Namespace, "ConfigMap.Name", configMap.Name)
+				if err = r.client.Create(context.TODO(), configMap); err != nil {
+					return reconcile.Result{}, err
+				}
+
+			}
+		}
+		if cfgHash, err = hashstructure.Hash(found.Data, nil); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
 	{
-		pod := newPodForCR(instance, cfgHash)
-
-		// Set ZNC instance as the owner and controller
+		cfgHashAsString := strconv.FormatUint(cfgHash, 10)
+		pod := newPodForCR(instance, cfgHashAsString)
 		if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
-
-		// Check if this Pod already exists
 		found := &corev1.Pod{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-		if err != nil && errors.IsNotFound(err) {
-			reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-			err = r.client.Create(context.TODO(), pod)
-			if err != nil {
+		if err == nil {
+			annotations := found.GetAnnotations()
+			if annotations == nil || len(annotations) == 0 || annotations["config.znc.in/checksum"] != cfgHashAsString {
+				// If no annotations are present or if the checksum doesn't match, we need to delete the Pod and re-create it.
+				reqLogger.Info(fmt.Sprintf("Configuration updated (old checksum: %s, new checksum: %s, deleting ZNC pod", annotations["config.znc.in/checksum"], cfgHashAsString))
+				return reconcile.Result{}, r.client.Delete(context.TODO(), found)
+			}
+		} else {
+			if errors.IsNotFound(err) {
+				reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
+				err = r.client.Create(context.TODO(), pod)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+			} else {
 				return reconcile.Result{}, err
 			}
-		} else if err != nil {
-			return reconcile.Result{}, err
 		}
 	}
 
 	return reconcile.Result{}, nil
 }
 
-func newConfigMapForCR(cr *zncv1.ZNC) *corev1.ConfigMap {
-	cfg := corev1.ConfigMap{
+func newConfigMapForCR(cr *zncv1.ZNC) (configMap *corev1.ConfigMap, err error) {
+	zncConf, err := RenderConfiguration(&cr.Spec)
+	if err != nil {
+		return nil, err
+	}
+	configMap = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: cr.Name,
+			Name:      cr.Name,
 			Namespace: cr.Namespace,
-			Labels: map[string]string {
+			Labels: map[string]string{
+				"app.kubernetes.io/instance":   cr.Name,
 				"app.kubernetes.io/managed-by": "znc-operator",
+				"app.kubernetes.io/name":       "znc",
 			},
 		},
-		Data: map[string]string {
-			// TODO Render configuration file.
-			"znc.conf": "",
+		Data: map[string]string{
+			"znc.conf": zncConf,
 		},
 	}
-	return &cfg
+	return configMap, nil
 }
 
 // newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *zncv1.ZNC, cfgHash uint64) *corev1.Pod {
+func newPodForCR(cr *zncv1.ZNC, cfgHash string) *corev1.Pod {
 	labels := map[string]string{
-		"app": cr.Name,
+		"app.kubernetes.io/instance":   cr.Name,
 		"app.kubernetes.io/managed-by": "znc-operator",
-		"hashcode.znc.in/config": strconv.FormatUint(cfgHash, 10),
+		"app.kubernetes.io/name":       "znc",
+	}
+	args := []string{
+		"--foreground",
+	}
+	if cr.Spec.Debug {
+		args = append(args, "--debug")
 	}
 	allowPrivilegeEscalation := false
 	readOnlyRootFileSystem := true
@@ -188,51 +210,109 @@ func newPodForCR(cr *zncv1.ZNC, cfgHash uint64) *corev1.Pod {
 			Name:      cr.Name,
 			Namespace: cr.Namespace,
 			Labels:    labels,
+			Annotations: map[string]string{
+				"config.znc.in/checksum": cfgHash,
+			},
 		},
 		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
+			InitContainers: []corev1.Container{
 				{
-					Args: []string{
-						"--foreground",
+					Command: []string{
+						"/bin/sh",
+						"-c",
 					},
-					Image:   fmt.Sprintf("docker.io/library/znc:%s", cr.Spec.GetVersion()),
-					Name:    "znc",
+					Args: []string{
+						"mkdir -p /znc-data/configs && cp /znc-config-src/znc.conf /znc-data/configs/znc.conf",
+					},
+					Image:           "docker.io/alpine:3.11.3",
+					ImagePullPolicy: corev1.PullIfNotPresent,
+					Name:            "copy-config",
 					SecurityContext: &corev1.SecurityContext{
 						AllowPrivilegeEscalation: &allowPrivilegeEscalation,
-						ReadOnlyRootFilesystem: &readOnlyRootFileSystem,
-						RunAsNonRoot: &runAsNonRoot,
-						RunAsUser: &userID,
-						RunAsGroup: &groupID,
+						ReadOnlyRootFilesystem:   &readOnlyRootFileSystem,
+						RunAsNonRoot:             &runAsNonRoot,
+						RunAsUser:                &userID,
+						RunAsGroup:               &groupID,
 						Capabilities: &corev1.Capabilities{
-							Drop: []corev1.Capability {
+							Drop: []corev1.Capability{
 								"ALL",
 							},
 						},
 					},
 					VolumeMounts: []corev1.VolumeMount{
 						{
-							Name: "znc-config",
-							MountPath: "/znc-data/configs",
-							ReadOnly: true,
+							Name:      "znc-config-src",
+							MountPath: "/znc-config-src",
+							ReadOnly:  true,
+						},
+						{
+							Name:      "znc-data",
+							MountPath: "/znc-data",
+							ReadOnly:  false,
+						},
+					},
+				},
+			},
+			Containers: []corev1.Container{
+				{
+					Args:            args,
+					Image:           fmt.Sprintf("docker.io/library/znc:%s", cr.Spec.GetVersion()),
+					ImagePullPolicy: corev1.PullIfNotPresent,
+					Name:            "znc",
+					Ports: []corev1.ContainerPort{
+						{
+							Name:          "irc",
+							ContainerPort: 6667,
+							Protocol:      corev1.ProtocolTCP,
+						},
+						{
+							Name:          "web",
+							ContainerPort: 8080,
+							Protocol:      corev1.ProtocolTCP,
+						},
+					},
+					SecurityContext: &corev1.SecurityContext{
+						AllowPrivilegeEscalation: &allowPrivilegeEscalation,
+						ReadOnlyRootFilesystem:   &readOnlyRootFileSystem,
+						RunAsNonRoot:             &runAsNonRoot,
+						RunAsUser:                &userID,
+						RunAsGroup:               &groupID,
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{
+								"ALL",
+							},
+						},
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "znc-data",
+							MountPath: "/znc-data",
+							ReadOnly:  false,
 						},
 					},
 				},
 			},
 			SecurityContext: &corev1.PodSecurityContext{
-				RunAsUser: &userID,
-				RunAsGroup: &groupID,
+				RunAsUser:    &userID,
+				RunAsGroup:   &groupID,
 				RunAsNonRoot: &runAsNonRoot,
-				FSGroup: &groupID,
+				FSGroup:      &groupID,
 			},
 			Volumes: []corev1.Volume{
 				{
-					Name: "znc-config",
+					Name: "znc-config-src",
 					VolumeSource: corev1.VolumeSource{
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: cr.Name,
 							},
 						},
+					},
+				},
+				{
+					Name: "znc-data",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				},
 			},
